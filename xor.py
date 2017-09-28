@@ -1,38 +1,49 @@
-import math
+
 import tensorflow as tf
-import numpy as np
+import time
 
-HIDDEN_NODES = 20
+x_ = tf.placeholder(tf.float32, shape=[4,2], name = 'x-input')
+y_ = tf.placeholder(tf.float32, shape=[4,1], name = 'y-input')
 
-x = tf.placeholder(tf.float32, [None, 2])
-W_hidden = tf.Variable(tf.truncated_normal([2, HIDDEN_NODES], stddev=1./math.sqrt(2)))
-b_hidden = tf.Variable(tf.zeros([HIDDEN_NODES]))
-hidden = tf.nn.relu(tf.matmul(x, W_hidden) + b_hidden)
+Theta1 = tf.Variable(tf.random_uniform([2,2], -1, 1), name = "Theta1")
+Theta2 = tf.Variable(tf.random_uniform([2,1], -1, 1), name = "Theta2")
 
-W_logits = tf.Variable(tf.truncated_normal([HIDDEN_NODES, 2], stddev=1./math.sqrt(HIDDEN_NODES)))
-b_logits = tf.Variable(tf.zeros([2]))
-logits = tf.matmul(hidden, W_logits) + b_logits
+Bias1 = tf.Variable(tf.zeros([2]), name = "Bias1")
+Bias2 = tf.Variable(tf.zeros([1]), name = "Bias2")
 
-y = tf.nn.softmax(logits)
+with tf.name_scope("layer2") as scope:
+	A2 = tf.sigmoid(tf.matmul(x_, Theta1) + Bias1)
 
-y_input = tf.placeholder(tf.float32, shape=[4,1])
+with tf.name_scope("layer3") as scope:
+	Hypothesis = tf.sigmoid(tf.matmul(A2, Theta2) + Bias2)
 
-cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits, y_input)
-loss = tf.reduce_mean(cross_entropy)
+with tf.name_scope("cost") as scope:
+	cost = tf.reduce_mean(( (y_ * tf.log(Hypothesis)) + 
+		((1 - y_) * tf.log(1.0 - Hypothesis)) ) * -1)
 
-train_op = tf.train.GradientDescentOptimizer(0.2).minimize(loss)
-init_op = tf.initialize_all_variables()
+with tf.name_scope("train") as scope:
+	train_step = tf.train.GradientDescentOptimizer(0.01).minimize(cost)
 
+XOR_X = [[0,0],[0,1],[1,0],[1,1]]
+XOR_Y = [[0],[1],[1],[0]]
+
+init = tf.initialize_all_variables()
 sess = tf.Session()
-sess.run(init_op)
 
-xTrain = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
-yTrain = np.array([[0], [1], [1], [0]])
+writer = tf.summary.FileWriter("./logs/xor_logs", sess.graph_def)
 
-for i in xrange(500):
-  _, loss_val = sess.run([train_op, loss], feed_dict={x: xTrain, y_input: yTrain})
+sess.run(init)
 
-  if i % 10 == 0:
-    print("Step:", i, "Current loss:", loss_val)
-    for x_input in [[0, 0], [0, 1], [1, 0], [1, 1]]:
-      print(x_input, sess.run(y, feed_dict={x: [x_input]}))
+t_start = time.clock()
+for i in range(1000000):
+	sess.run(train_step, feed_dict={x_: XOR_X, y_: XOR_Y})
+	if i % 1000 == 0:
+		#print('Epoch ', i)
+		print(sess.run(Hypothesis, feed_dict={x_: XOR_X}))
+		#print('Theta1 ', sess.run(Theta1))
+		#print('Bias1 ', sess.run(Bias1))
+		#print('Theta2 ', sess.run(Theta2))
+		#print('Bias2 ', sess.run(Bias2))
+		#print('cost ', sess.run(cost, feed_dict={x_: XOR_X, y_: XOR_Y}))
+t_end = time.clock()
+print('Elapsed time ', t_end - t_start)
